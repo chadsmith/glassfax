@@ -198,7 +198,7 @@ app.post('/subcallback', function(req, res) {
               if(err)
                 throw err;
               phaxio.sendFax({
-                  to: settings.phaxio.to_number,
+                  to: result.text || settings.phaxio.to_number,
                   caller_id: settings.phaxio.caller_id,
                   filenames: path.join(__dirname, '/tmp/', id + '.jpg'),
                   callback_url: 'http://' + settings.server.hostname + ':' + settings.server.port + '/fax_sent/' + id

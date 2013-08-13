@@ -27,6 +27,6 @@ Send and receive faxes using Google Glass. Seriously.
 `node app` or `forever start app.js`
 
 * Authorize the app by visiting http://hostname:port/ on your computer
-* Send faxes by sharing a photo with Glass Fax
+* Send faxes by sharing a photo with Glass Fax, speak a phone number in the caption to override the default number
 * View faxes you receive in your Glass timeline
-* Change the number to send a fax to by visiting http://hostname:port/number/{digits} on your computer
+* Change the default number to send a fax to by visiting http://hostname:port/number/{digits} on your computer

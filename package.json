@@ -10,6 +10,7 @@
     "phaxio": "*",
     "request": "*",
     "imagemagick": "*",
-    "googleapis": "*"
+    "googleapis": "*",
+    "jade": "*"
   }
 }

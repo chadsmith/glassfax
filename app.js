@@ -12,7 +12,7 @@ var util = require('util'),
       port: '5555'
     },
     google: {
-      client_id: '000000000000-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.apps.googleusercontent.com',
+      client_id: '000000000000.apps.googleusercontent.com',
       client_secret: 'bbbbbbbbbbbbbbbbbbbbbbbb'
     },
     phaxio: {
@@ -23,6 +23,11 @@ var util = require('util'),
     }
   },
   phaxio = new Phaxio(settings.phaxio.api_key, settings.phaxio.api_secret),
+  template = function(fax) {
+    for(var html = [], i = 0; i < fax.num_pages; i++)
+      html.push('<article><figure><img src="http://' + settings.server.hostname + ':' + settings.server.port + '/' + fax.id + (fax.num_pages > 1 ? '-' + i : '') + '.jpg" style="height: 100%;"></figure><section><h1 class="text-large">Fax ' + (fax.from_number ? 'Received' : 'Sent') + '</h1><p class="text-x-small">' + (fax.from_number ? fax.from_number : fax.recipients[0].number) + '</p><hr><p class="text-normal">Page ' + (i + 1) + ' of ' + fax.num_pages + '</p></section></article>');
+    return html.join('');
+  },
   OAuth2Client = googleapis.OAuth2Client,
   oauth2Client = {},
   app = express();
@@ -30,6 +35,8 @@ var util = require('util'),
 app.configure(function() {
   app.use(express.bodyParser({ uploadDir: path.join(__dirname, '/tmp') }));
   app.use(express.static(__dirname + '/public'));
+  app.set('views', __dirname + '/views');
+  app.set('view engine', 'jade');
 });
 
 app.get('/', function(req, res) {
@@ -42,19 +49,19 @@ app.get('/', function(req, res) {
   }
   else {
     googleapis.discover('mirror', 'v1').execute(function(err, client) {
-      client.mirror.withAuthClient(oauth2Client).newRequest('mirror.subscriptions.insert', null, {
+      client.mirror.subscriptions.insert({
         callbackUrl: 'https://mirrornotifications.appspot.com/forward?url=http://' + settings.server.hostname + ':' + settings.server.port + '/subcallback',
         collection: 'timeline',
         operation: [ 'INSERT' ]
-      }).execute(function(err, result) {
+      }).withAuthClient(oauth2Client).execute(function(err, result) {
         console.log('mirror.subscriptions.insert', util.inspect(result));
       });
-      client.mirror.withAuthClient(oauth2Client).newRequest('mirror.contacts.insert', null, {
+      client.mirror.contacts.insert({
         displayName: 'Fax',
         id: 'glassfax',
         imageUrls: [ 'http://' + settings.server.hostname + ':' + settings.server.port + '/contact_image.png' ],
         acceptTypes: [ 'image/*' ]
-      }).execute(function(err, result) {
+      }).withAuthClient(oauth2Client).execute(function(err, result) {
         console.log('mirror.contacts.insert', util.inspect(result));
       });
     });
@@ -80,14 +87,18 @@ app.post('/fax_received', function(req, res) {
       if(err)
         throw err;
       googleapis.discover('mirror', 'v1').execute(function(err, client) {
-        client.mirror.withAuthClient(oauth2Client).newRequest('mirror.timeline.insert', null, {
-          html: '<article><figure><img src="http://' + settings.server.hostname + ':' + settings.server.port + '/' + fax.id + '.jpg" style="height: 100%;"></figure><section><h1 class="text-large">Fax Received</h1><p class="text-x-small">' + fax.from_number + '</p><hr><p class="text-normal">Page 1 of ' + fax.num_pages + '</p></section></article>',
+        client.mirror.timeline.insert({
+          html: template(fax),
           menuItems: [
+            {
+              action: 'VIEW_WEBSITE',
+              payload: 'http://' + settings.server.hostname + ':' + settings.server.port + '/fax/' + fax.id + '-' + fax.num_pages
+            },
             {
               action: 'DELETE'
             }
           ]
-        }).execute(function(err, result) {
+        }).withAuthClient(oauth2Client).execute(function(err, result) {
           console.log('mirror.timeline.insert', util.inspect(result));
         });
       });
@@ -96,8 +107,36 @@ app.post('/fax_received', function(req, res) {
 });
 
 app.post('/fax_sent', function(req, res) {
-  res.send(200);
-  console.log('/fax_sent', util.inspect(req.body.fax));
+  var fax = JSON.parse(req.body.fax);
+  console.log('/fax_sent', util.inspect(fax));
+  phaxio.faxFile({ id: '' + fax.id }, function(err, buffer) {
+    if(err)
+      throw err;
+    fs.writeFile(path.join(__dirname, '/tmp/', fax.id + '.pdf'), buffer, 'binary', function(err) {
+      if(err)
+        throw err;
+      im.convert(['-density', '400', '-resize', '25%', path.join(__dirname, '/tmp/', fax.id + '.pdf'), path.join(__dirname, '/public/', fax.id + '.jpg')], function(err, stdout) {
+        if(err)
+          throw err;
+        googleapis.discover('mirror', 'v1').execute(function(err, client) {
+          client.mirror.timeline.insert({
+            html: template(fax),
+            menuItems: [
+              {
+                action: 'VIEW_WEBSITE',
+                payload: 'http://' + settings.server.hostname + ':' + settings.server.port + '/fax/' + fax.id + '-' + fax.num_pages
+              },
+              {
+                action: 'DELETE'
+              }
+            ]
+          }).withAuthClient(oauth2Client).execute(function(err, result) {
+            console.log('mirror.timeline.insert', util.inspect(result));
+          });
+        })
+      });
+    });
+  });
 });
 
 app.post('/fax_sent/:id', function(req, res) {
@@ -114,20 +153,28 @@ app.post('/fax_sent/:id', function(req, res) {
         if(err)
           throw err;
         googleapis.discover('mirror', 'v1').execute(function(err, client) {
-          client.mirror.withAuthClient(oauth2Client).newRequest('mirror.timeline.update', { id: req.params.id }, {
-            html: '<article><figure><img src="http://' + settings.server.hostname + ':' + settings.server.port + '/' + fax.id + '.jpg" style="height: 100%;"></figure><section><h1 class="text-large">Fax Sent</h1><p class="text-x-small">' + fax.recipients[0].number + '</p><hr><p class="text-normal">Page 1 of ' + fax.num_pages + '</p></section></article>',
+          client.mirror.timeline.update({ id: req.params.id }, {
+            html: template(fax),
             menuItems: [
+              {
+                action: 'VIEW_WEBSITE',
+                payload: 'http://' + settings.server.hostname + ':' + settings.server.port + '/fax/' + fax.id + '-' + fax.num_pages
+              },
               {
                 action: 'DELETE'
               }
             ]
-          }).execute(function(err, result) {
+          }).withAuthClient(oauth2Client).execute(function(err, result) {
             console.log('mirror.timeline.update', util.inspect(result));
           });
         })
       });
     });
   });
+});
+
+app.get('/fax/:id-:pages', function(req, res) {
+  res.render('fax', { id: req.params.id, pages: req.params.pages });
 });
 
 app.post('/subcallback', function(req, res) {

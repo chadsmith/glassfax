@@ -1,0 +1,17 @@
+doctype 5
+html
+  head
+    title Glass Fax ##{id}
+    meta(name='viewport', content='width=device-width, initial-scale=1')
+    style.
+      html, body, p {
+        margin: 0;
+        padding: 0;
+      }
+      img {
+        max-width: 100%;
+      }
+  body
+    - for(var i = 0; i < pages; i++)
+      p
+        img(src='/' + id + (pages > 1 ? '-' + i : '') + '.jpg', alt='Page ' + (i + 1))

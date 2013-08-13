@@ -92,12 +92,21 @@ app.post('/fax_received', function(req, res) {
           menuItems: [
             {
               action: 'VIEW_WEBSITE',
+              values: [
+                {
+                  displayName: "View Fax",
+                  iconUrl: 'http://' + settings.server.hostname + ':' + settings.server.port + '/view.png'
+                }
+              ],
               payload: 'http://' + settings.server.hostname + ':' + settings.server.port + '/fax/' + fax.id + '-' + fax.num_pages
             },
             {
               action: 'DELETE'
             }
-          ]
+          ],
+          notification: {
+            level: 'DEFAULT'
+          }
         }).withAuthClient(oauth2Client).execute(function(err, result) {
           console.log('mirror.timeline.insert', util.inspect(result));
         });
@@ -107,6 +116,7 @@ app.post('/fax_received', function(req, res) {
 });
 
 app.post('/fax_sent', function(req, res) {
+  res.send(200);
   var fax = JSON.parse(req.body.fax);
   console.log('/fax_sent', util.inspect(fax));
   phaxio.faxFile({ id: '' + fax.id }, function(err, buffer) {
@@ -124,12 +134,21 @@ app.post('/fax_sent', function(req, res) {
             menuItems: [
               {
                 action: 'VIEW_WEBSITE',
+                values: [
+                  {
+                    displayName: "View Fax",
+                    iconUrl: 'http://' + settings.server.hostname + ':' + settings.server.port + '/view.png'
+                  }
+                ],
                 payload: 'http://' + settings.server.hostname + ':' + settings.server.port + '/fax/' + fax.id + '-' + fax.num_pages
               },
               {
                 action: 'DELETE'
               }
-            ]
+            ],
+            notification: {
+              level: 'DEFAULT'
+            }
           }).withAuthClient(oauth2Client).execute(function(err, result) {
             console.log('mirror.timeline.insert', util.inspect(result));
           });
@@ -158,12 +177,21 @@ app.post('/fax_sent/:id', function(req, res) {
             menuItems: [
               {
                 action: 'VIEW_WEBSITE',
+                values: [
+                  {
+                    displayName: "View Fax",
+                    iconUrl: 'http://' + settings.server.hostname + ':' + settings.server.port + '/view.png'
+                  }
+                ],
                 payload: 'http://' + settings.server.hostname + ':' + settings.server.port + '/fax/' + fax.id + '-' + fax.num_pages
               },
               {
                 action: 'DELETE'
               }
-            ]
+            ],
+            notification: {
+              level: 'DEFAULT'
+            }
           }).withAuthClient(oauth2Client).execute(function(err, result) {
             console.log('mirror.timeline.update', util.inspect(result));
           });
